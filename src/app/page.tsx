@@ -1,7 +1,11 @@
+import Hero from "@/components/Hero";
+import Intro from "@/components/Intro";
+
 export default function Home() {
   return (
-    <div className="flex h-screen items-center justify-center bg-black">
-      <h1 className="text-5xl font-bold text-yellow-400 tracking-tight">Flux Website</h1>
-    </div>
+    <main>
+      <Hero />
+      <Intro />
+    </main>
   );
 }

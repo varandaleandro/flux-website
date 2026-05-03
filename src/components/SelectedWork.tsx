@@ -1,29 +1,19 @@
-const PROJECTS = [
-  {
-    title: "Surfers paradise",
-    tags: ["Social Media", "Photography"],
-    src: "/surfers-paradise.jpg",
-    tall: true,
-  },
-  {
-    title: "Cyberpunk caffe",
-    tags: ["Social Media", "Photography"],
-    src: "/cyberpunk-caffe.jpg",
-    tall: false,
-  },
-  {
-    title: "Agency 976",
-    tags: ["Social Media", "Photography"],
-    src: "/agency-976.jpg",
-    tall: false,
-  },
-  {
-    title: "Minimal Playground",
-    tags: ["Social Media", "Photography"],
-    src: "/minimal-playground.jpg",
-    tall: true,
-  },
-] as const;
+import { client } from "@/sanity/lib/client";
+import { urlFor } from "@/sanity/lib/image";
+
+type Project = {
+  _id: string;
+  title: string;
+  tags: string[] | null;
+  image?: { asset: { _ref: string }; hotspot?: unknown } | null;
+  tall: boolean;
+};
+
+const QUERY = `*[_type == "project"] | order(order asc) {
+  _id, title, tags, image, tall
+}`;
+
+const PLACEHOLDER_BG = ["#d4d0c8", "#c8ccd4", "#d0c8cc", "#c8d0c8"];
 
 function Tag({ label }: { label: string }) {
   return (
@@ -52,34 +42,36 @@ function ArrowIcon() {
 function ProjectCard({
   title,
   tags,
-  src,
+  image,
   tall,
+  index,
 }: {
   title: string;
-  tags: readonly string[];
-  src: string;
+  tags: string[] | null;
+  image?: Project["image"];
   tall: boolean;
+  index: number;
 }) {
+  const imgUrl = image ? urlFor(image).width(800).url() : null;
+
   return (
     <div className="flex flex-col gap-2.5 w-full">
-      {/*
-        Mobile:   aspect-[4/5]  — portrait, matches screenshot
-        Desktop:  tall → aspect-[5/6], regular → aspect-square
-        No fixed pixel heights, so the card is always proportional to column width.
-      */}
       <div
         className={`relative w-full overflow-hidden flex flex-col justify-end p-4
           aspect-[4/5]
           ${tall ? "md:aspect-[5/6]" : "md:aspect-square"}
         `}
+        style={!imgUrl ? { backgroundColor: PLACEHOLDER_BG[index % PLACEHOLDER_BG.length] } : undefined}
       >
-        <img
-          src={src}
-          alt={title}
-          className="absolute inset-0 w-full h-full object-cover"
-        />
+        {imgUrl && (
+          <img
+            src={imgUrl}
+            alt={title}
+            className="absolute inset-0 w-full h-full object-cover"
+          />
+        )}
         <div className="relative flex gap-2 items-center flex-wrap">
-          {tags.map((tag) => (
+          {(tags ?? []).map((tag) => (
             <Tag key={tag} label={tag} />
           ))}
         </div>
@@ -117,7 +109,9 @@ function CtaBox() {
   );
 }
 
-export default function SelectedWork() {
+export default async function SelectedWork() {
+  const projects: Project[] = await client.fetch(QUERY, {}, { next: { revalidate: 60 } });
+
   const headingStyle = {
     fontSize: "clamp(40px, calc(20px + 5.3vw), 96px)",
     letterSpacing: "-0.08em",
@@ -157,22 +151,17 @@ export default function SelectedWork() {
 
       {/* ── Mobile: single column ── */}
       <div className="flex flex-col gap-10 md:hidden">
-        {PROJECTS.map((p) => (
-          <ProjectCard key={p.title} {...p} />
+        {projects.map((p, i) => (
+          <ProjectCard key={p._id} {...p} index={i} />
         ))}
         <CtaBox />
       </div>
 
-      {/* ── Desktop: two-column masonry ──
-           Right column offset and gap both scale with viewport via clamp so
-           the stagger stays proportional at every desktop width.
-           offset: 80px @ 768px → 240px @ 1440px
-           gap:    24px @ 768px → 117px @ 1440px
-      ── */}
+      {/* ── Desktop: two-column masonry ── */}
       <div className="hidden md:flex gap-6 items-start">
         <div className="flex-1 flex flex-col gap-6">
-          <ProjectCard {...PROJECTS[0]} />
-          <ProjectCard {...PROJECTS[1]} />
+          {projects[0] && <ProjectCard {...projects[0]} index={0} />}
+          {projects[1] && <ProjectCard {...projects[1]} index={1} />}
           <CtaBox />
         </div>
         <div
@@ -182,8 +171,8 @@ export default function SelectedWork() {
             gap: "clamp(24px, 8.1vw, 117px)",
           }}
         >
-          <ProjectCard {...PROJECTS[2]} />
-          <ProjectCard {...PROJECTS[3]} />
+          {projects[2] && <ProjectCard {...projects[2]} index={2} />}
+          {projects[3] && <ProjectCard {...projects[3]} index={3} />}
         </div>
       </div>
 
